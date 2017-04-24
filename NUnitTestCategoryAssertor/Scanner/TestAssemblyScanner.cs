@@ -1,70 +1,64 @@
 ﻿using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using NUnitTestCategoryAssertor.Helpers;
 using NUnitTestCategoryAssertor.Reflection;
+using NUnitTestCategoryAssertor.Validation;
 
 namespace NUnitTestCategoryAssertor.Scanner {
 
 	public sealed class TestAssemblyScanner {
 
-		private static readonly CSharpTypeNameFormatter m_typeNameFormatter = new CSharpTypeNameFormatter();
+		private readonly IEnumerable<IAssemblyValidator> m_validators;
 
-		private readonly ISet<string> m_requiredCategories;
-		private readonly ISet<string> m_prohibitedAssemblyCategories;
-
-		public TestAssemblyScanner(
-				ISet<string> requiredCategories,
-				ISet<string> prohibitedAssemblyCategories
-			) {
-			m_requiredCategories = requiredCategories;
-			m_prohibitedAssemblyCategories = prohibitedAssemblyCategories;
+		public TestAssemblyScanner( IEnumerable<IAssemblyValidator> validators ) {
+			m_validators = validators;
 		}
 
 		public TestAssembly Scan( Assembly assembly ) {
 
-			IEnumerable<string> assemblyCategories = assembly
+			var sw = new DebugStopwatch( "2.GetAssemblyCategories" );
+			List<string> assemblyCategories = assembly
 				.GetCustomAttributes<CategoryAttribute>()
 				.Select( attr => attr.Name )
-				.ToArray();
+				.ToList();
+			sw.Dispose();
 
-			IEnumerable<string> assemblyViolations = assemblyCategories
-				.Where( m_prohibitedAssemblyCategories.Contains )
-				.Select( c => $"Invalid assembly-level category \"{c}\"" );
+			sw = new DebugStopwatch( "3.LoadTestFixturs" );
+			List<TestFixture> fixtures = assembly.GetTypes()
+				.Select( LoadTestFixtureOrNull )
+				.Where( f => f != null )
+				.ToList();
+			sw.Dispose();
 
 			TestAssembly testAssembly = new TestAssembly(
-					name: assembly.GetName().Name,
-					violations: assemblyViolations.ToList()
+				assembly,
+				assemblyCategories,
+				fixtures
 				);
 
-			Type[] types = assembly.GetTypes();
-			foreach( Type type in types ) {
-
-				TestFixture fixture = LoadTestFixtureOrNull( type, assemblyCategories );
-				if( fixture != null ) {
-
-					testAssembly.Fixtures.Add( fixture );
+			foreach( var validator in m_validators ) {
+				using( new DebugStopwatch( $"4.{validator.GetType().Name}" ) ) {
+					validator.Validate( testAssembly );
 				}
 			}
 
 			return testAssembly;
 		}
 
-		private TestFixture LoadTestFixtureOrNull(
-				Type type,
-				IEnumerable<string> assemblyCategories
-			) {
+		private TestFixture LoadTestFixtureOrNull( Type type ) {
 
 			TestFixtureAttribute[] testFixtureAttrs = type
 				.GetCustomAttributes<TestFixtureAttribute>( true )
 				.ToArray();
 
-			if( testFixtureAttrs.Length == 0 ) {
+			if( !testFixtureAttrs.Any() ) {
 				return null;
 			}
-
-			// -----------------------------------------------------
 
 			IEnumerable<string> testFixtureCategoryNames = testFixtureAttrs
 				.Where( attr => attr.Category != null )
@@ -74,40 +68,19 @@ namespace NUnitTestCategoryAssertor.Scanner {
 				.GetCustomAttributes<CategoryAttribute>( true )
 				.Select( attr => attr.Name );
 
-			IEnumerable<string> testFixtureCategories = testFixtureCategoryNames
+			IList<string> testFixtureCategories = testFixtureCategoryNames
 				.Concat( categoryNames )
-				.ToArray();
-
-			// -----------------------------------------------------
-
-			string fixtureName = m_typeNameFormatter.FormatFullName( type );
-			TestFixture fixture = new TestFixture( fixtureName );
+				.ToList();
 
 			BindingFlags bindingFlags = (
-					BindingFlags.Public
-					| BindingFlags.NonPublic
-					| BindingFlags.Static
-					| BindingFlags.Instance
-				);
+				BindingFlags.Public
+				| BindingFlags.NonPublic
+				| BindingFlags.Static
+				| BindingFlags.Instance
+			);
 
-			MethodInfo[] methods = type.GetMethods( bindingFlags );
-			foreach( MethodInfo method in methods ) {
-
-				bool isTest = IsTestMethod( method );
-				if( isTest ) {
-
-					TestViolation violation = AssertTestOrNull(
-							type,
-							method,
-							assemblyCategories,
-							testFixtureCategories
-						);
-
-					if( violation != null ) {
-						fixture.Violations.Add( violation );
-					}
-				}
-			}
+			IList<MethodInfo> methods = type.GetMethods( bindingFlags ).Where( IsTestMethod ).ToList();
+			TestFixture fixture = new TestFixture( type, testFixtureCategories, methods );
 
 			return fixture;
 		}
@@ -125,41 +98,6 @@ namespace NUnitTestCategoryAssertor.Scanner {
 			}
 
 			return false;
-		}
-
-		private TestViolation AssertTestOrNull(
-				Type type,
-				MethodInfo method,
-				IEnumerable<string> assemblyCategories,
-				IEnumerable<string> testFixtureCategories
-			) {
-
-			ISet<string> testCategories = method
-				.GetCustomAttributes<CategoryAttribute>( true )
-				.Select( attr => attr.Name )
-				.ToHashSet( StringComparer.OrdinalIgnoreCase );
-
-			testCategories.UnionWith( assemblyCategories );
-			testCategories.UnionWith( testFixtureCategories );
-
-			testCategories.IntersectWith( m_requiredCategories );
-			if( testCategories.Count == 0 ) {
-
-				return new TestViolation( method.Name, "No test category defined" );
-
-				/*
-			} else if( testCategories.Count > 1 ) {
-
-				string msg = String.Format(
-						"Multiple test categories defined: {0}",
-						String.Join( ", ", testCategories )
-					);
-
-				return new TestViolation( method.Name, msg );*/
-
-			} else {
-				return null;
-			}
 		}
 
 	}

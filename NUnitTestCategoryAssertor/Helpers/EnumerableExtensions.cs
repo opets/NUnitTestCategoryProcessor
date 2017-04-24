@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace NUnitTestCategoryAssertor {
+namespace NUnitTestCategoryAssertor.Helpers {
 
-	public static partial class EnumerableExtensions {
+	public static class EnumerableExtensions {
 
 		public static HashSet<T> ToHashSet<T>(
 				this IEnumerable<T> items,

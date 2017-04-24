@@ -2,9 +2,9 @@
 using System.Linq;
 using System.Reflection;
 
-namespace NUnitTestCategoryAssertor {
+namespace NUnitTestCategoryAssertor.Scanner {
 
-	internal static class NUnitFrameworkReferenceChecker {
+	internal class NUnitFrameworkReferenceChecker {
 
 		private static readonly AssemblyName m_expectedNUnitFramework =
 			typeof( NUnit.Framework.TestFixtureAttribute ).Assembly.GetName();

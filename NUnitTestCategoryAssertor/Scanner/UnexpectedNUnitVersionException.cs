@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace NUnitTestCategoryAssertor {
+namespace NUnitTestCategoryAssertor.Scanner {
 
 	internal sealed class UnexpectedNUnitVersionException : Exception {
 

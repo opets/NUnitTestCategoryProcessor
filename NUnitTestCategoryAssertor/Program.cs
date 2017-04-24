@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using NDesk.Options;
+using NUnitTestCategoryAssertor.Helpers;
 using NUnitTestCategoryAssertor.Scanner;
+using NUnitTestCategoryAssertor.Validation;
 
 namespace NUnitTestCategoryAssertor {
 
@@ -129,6 +131,7 @@ namespace NUnitTestCategoryAssertor {
 				Console.Error.WriteLine( err );
 				return -100;
 			}
+
 		}
 
 		private static int Run( Arguments args ) {
@@ -138,27 +141,31 @@ namespace NUnitTestCategoryAssertor {
 
 			Console.WriteLine( "Loading assemblies from '{0}'", path );
 
+			var sw = new DebugStopwatch( "1.LoadAssemblies" );
 			IEnumerable<Assembly> assemblies = args.AssembliesPath
 				.EnumerateFiles( "*.dll", SearchOption.TopDirectoryOnly )
 				.Where( file => !args.ExcludedAssemblies.Contains( file.Name ) )
 				.Select( GetAssemblyOrNull )
 				.Where( ass => ass != null )
 				.Where( NUnitFrameworkReferenceChecker.ReferencesNUnitFramework );
+			sw.Dispose();
 
 			int violations = 0;
 
 			TestAssemblyScanner scanner = new TestAssemblyScanner(
-					args.RequiredCategories,
-					args.ProhibitedAssemblyCategories
-				);
+				new IAssemblyValidator[] {
+					new ProhibitedAssemblyCategoryValidator( args.ProhibitedAssemblyCategories ),
+					new RequaredCategoryValidator(args.RequiredCategories)
+				} );
 
 			using( IndentedTextWriter writer = new IndentedTextWriter( Console.Error, "\t" ) ) {
 
 				foreach( Assembly assembly in assemblies ) {
-
 					TestAssembly testAssembly = scanner.Scan( assembly );
 					violations += Report( testAssembly, writer );
 				}
+
+				DebugStopwatch.Report( writer );
 			}
 
 			return violations;
@@ -256,6 +263,8 @@ namespace NUnitTestCategoryAssertor {
 
 			return null;
 		}
+
+
 
 	}
 }

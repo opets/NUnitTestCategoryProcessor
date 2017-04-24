@@ -52,26 +52,31 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AssemblyResolver.cs" />
-    <Compile Include="NUnitFrameworkReferenceChecker.cs" />
+    <Compile Include="Helpers\AssemblyResolver.cs" />
+    <Compile Include="Helpers\DebugStopwatch.cs" />
+    <Compile Include="Scanner\NUnitFrameworkReferenceChecker.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Reflection\CSharpTypeNameFormatter.cs" />
     <Compile Include="Scanner\TestViolation.cs" />
     <Compile Include="Scanner\TestAssembly.cs" />
-    <Compile Include="EnumerableExtensions.cs" />
+    <Compile Include="Helpers\EnumerableExtensions.cs" />
     <Compile Include="Scanner\TestAssemblyScanner.cs" />
     <Compile Include="Scanner\TestFixture.cs" />
-    <Compile Include="UnexpectedNUnitVersionException.cs" />
+    <Compile Include="Validation\RequaredCategoryValidator.cs" />
+    <Compile Include="Validation\ProhibitedAssemblyCategoryValidator.cs" />
+    <Compile Include="Scanner\UnexpectedNUnitVersionException.cs" />
     <Compile Include="..\VersionInfo.cs">
       <Link>Properties\VersionInfo.cs</Link>
     </Compile>
+    <Compile Include="Validation\IAssemblyValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <None Include="NUnitTestCategoryAssertor.nuspec" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
